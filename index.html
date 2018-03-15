@@ -1,0 +1,368 @@
+<html>
+  <head>
+    <title>Talk-Cloud Example</title>
+    
+
+    <script type="text/javascript" src="lib/socket.io.js?222"></script>
+    <script type="text/javascript" src="tksdk.js?227666"></script>
+	<script type="text/javascript" src="jquery.min.js?222"></script>
+    
+    <script type="text/javascript">
+
+      var localStream;              //本地视频流
+      var mediaId;                  //媒体文件ID
+      var room = TK.Room();         //房间
+      var subscribedStreams = {};   //订阅流
+	  var devices = {}; //设备列表
+	  var devicesAudioInput = {}; //音频输入设备列表
+	  var devicesVideoInput = {}; //视频输入设备列表
+	  var selectDevice = {};  //选择设备列表
+
+      function getParams(name) {        //获取参数
+            var reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)', 'i');
+console.log(reg)
+            var r = window.location.search.substr(1).match(reg);
+        console.log(r);
+            if (r != null) {
+                return decodeURIComponent(r[2]);
+            }
+            return null;
+      }
+
+	  //获取教室名称
+      var name = getParams('name');
+      if (name === null) {
+        name = '';
+      }
+
+      //获取教室编号
+	  var mid = getParams('mid');
+      if (mid === null) { //教室编号，自己添加
+          mid = '';
+      }
+
+	  //获取教室密码
+      var pwd = getParams('pwd');
+      if (pwd === null) {
+        pwd = '1';
+      }
+
+
+	  //获取本地音视频是否开启
+      var av = getParams('av');
+      if (av === null) {
+        av = true;
+      }
+      else {
+        av = false;
+      }
+	  
+	  var data = {
+          action:'deviceManagement' ,
+          type:'sendDeviceInfo' ,
+          deviceData:undefined ,
+      };
+		 
+
+	  //数据流发布，取消发布
+      function publish() {
+        document.getElementById('publish').disabled=true;
+        if(localStream.getID() === 'local')
+          room.changeUserPublish(room.getMySelf().id, 3);
+        else
+          room.changeUserPublish(room.getMySelf().id, 0);
+      }
+	  
+	  var recording = undefined;
+      function record() {
+        if (recording === undefined) {
+          recording = localStream;
+          room.startRecordStream(localStream, {convert:0}, function(ret, path) { //开始录制视频流   convert：0 不转换 mkv，1 转换 webm， 2 转换 MP4
+            L.Logger.debug('startRecordStream ret:', ret, path);    //返回的路径需要在前面加http://global.talk-cloud.net:8081/
+          });
+        }
+        else { 
+          recording = undefined;
+          room.stopRecordStream(localStream, function() { //停止录制视频流
+
+          }); 
+        }
+      }
+	  
+	  //播放多媒体文件 MP4，MP3
+      function playmedia(){
+       
+      }
+
+
+      //多媒体文件播放进度拖动
+	  function seekmedia() {
+        room.controlMedia(mediaId, {type:'seek', pos:30000});
+      }
+
+      var pausing = false;
+	  //多媒体文件播放暂停
+      function pausemedia() {
+        pausing = !pausing;
+        room.controlMedia(mediaId, {type:'pause', pause:pausing});
+        document.getElementById('pausemedia').value = pausing ? 'resume' : 'pausemedia'; 
+      }
+
+      var disabled = false;
+	  //显示视频播放状态
+      function disable() {
+        disabled = !disabled;
+        room.changeMyDisableVideoState(disabled);
+        document.getElementById('disable').value = disabled ? 'enable' : 'disable';        
+      }
+
+      var isbegin = false;
+	  //上，下课
+      function classbegin() {
+        isbegin = !isbegin;
+        if(isbegin) {
+          document.getElementById('classbegin').value = 'ClassEnd';
+          room.pubMsg('ClassBegin', 'ClassBegin', '__all', {}, true);
+        }
+        else {
+          document.getElementById('classbegin').value = 'ClassBegin';
+          room.delMsg('ClassBegin', 'ClassBegin', '__all', {}, true);
+        }
+      }
+
+	  //发布自定义消息
+      function pubmsg() {
+        //(msgName, msgId, toId, data, save)
+        room.pubMsg('testmsg', 'testmsg1', '__allExceptSender', {today:'friday'}, true);
+      }
+
+	  //删除自定义消息
+      function delmsg() {
+        room.delMsg('testmsg', 'testmsg1', '__allExceptSender', {today:'friday'}, true);
+      }
+
+	  //改变用户属性
+      function changeproperty() {
+        //(id,tellWhom,key, value)
+        room.changeUserProperty(room.getMySelf().id, '__all', {'testnumber': 123, 'testboolean': true, 'testobject': {say:'what'}});
+      }
+
+	  //将用户踢出房间
+      function evict() {
+        var users = room.getUsers();
+        L.Logger.debug('evict1', users);  
+        if (users === undefined)
+          return;
+
+        for(var key in users){
+            L.Logger.debug('evict2', key);  
+            if (key != room.getMySelf().id && users[key].role == room.getMySelf().role) {
+                room.evictUser(key);
+                return; 
+            }
+        } 
+      }
+	  
+	  //枚举设备
+	  function enumerateDevices(){    //枚举设备详细信息 可以在浏览器调试状态下 输入 enumerateDevices devices 查看，拷贝下来即可
+		var paramsJson = {isSetlocalStorage: false} ;
+		//debugger;
+        TK.AVMgr.enumerateDevices(function (deviceInfo) {
+			data = {
+				action:'deviceManagement' ,
+				type:'sendDeviceInfo' ,
+				deviceData:{deviceInfo:deviceInfo} ,
+			 };
+			 devices = deviceInfo.devices;
+			 devicesAudioInput = devices.audioinput;
+			 devicesVideoInput = devices.videoinput;
+			 var selectItem = document.getElementById('selectDevices');
+			 //selectItem.setAttribute("id","text");
+			 for(var i=0;i<devicesVideoInput.length;i++){
+				selectItem.options.add(new Option(devicesVideoInput[i].label, devicesVideoInput[i].deviceId));  
+		     }
+				  
+        }, paramsJson);                                                                                
+	  }
+	  
+	  //改变设备
+	  //selectDeviceInfo = {		//根据枚举设备 列出的设备进行下面的赋值
+	  //audioinput:"fa953d690f8c17535fa834c93ead25f3b4e8cb1626dcd7f207216d8b78005e57",
+	  //audiooutput:"10499511aa34955df32ad5832534d784cd0bc9b7538a0f153c2c3f0bcbf2986b",
+	  //videoinput:"407204e45d00cdd7f52ee354a2437a3ddec0c657c1a2b095811cb17c4aaea1e4",
+	  //videoinput:"b1820f16180e3675c519d9cdd26ca915ada6b55d4979f20c10f931fefbc2cc7b",
+	  //};
+	  function selectDevices(obj){
+	
+		selectDevice.videoinput = obj.value;
+		localStream = TK.Stream({audio: av, video: av, data: false, extensionId: "999999999999999",  attributes:{type:'video'}});
+
+             
+              localStream.addEventListener("access-accepted", function () {
+				  //播放本地视频
+                  L.Logger.info('Trying to connect');
+                  var div = document.createElement('div');
+                  div.setAttribute('style', 'width: 320px; height: 240px; float:left');
+                  div.setAttribute('id', 'myVideo');
+                  document.getElementById('videoContainer').appendChild(div);
+                  localStream.play("myVideo");
+
+                  //加入教室
+				  room.joinroom(localStream);
+              });
+	
+			  alert(selectDevice.videoinput);
+			  var options = { "initDeviceId":{"videoinput":selectDevice.videoinput} } 
+			  localStream.init(undefined,options);  //先点击枚举设备获取设备
+	  }
+	  
+	  function changeLocalDevice(){
+		var selectDeviceInfo = selectDevice;
+        var audioouputElementIdArr = document.getElementById("videoContainer").querySelectorAll("video , audio") ; //教室中音视频设备
+		L.Logger.debug('selectDeviceInfo  ====', selectDeviceInfo);
+        room.changeLocalDeviceToLocalstream(selectDeviceInfo , function (stream) {
+			L.Logger.debug('subscribeToStreams ====', stream);
+			/*var div = document.createElement('div');
+                  div.setAttribute('style', 'width: 320px; height: 240px; float:left');
+                  div.setAttribute('id', 'myVideoTest');
+                  document.getElementById('videoContainer').appendChild(div);
+			localStream.play('myVideoTest');*/
+        },audioouputElementIdArr);                                                
+	  
+	  }
+
+	  //发送消息
+      function sendmsg() {
+        room.sendMessage(document.getElementById('text').value);
+      }
+
+	  //订阅
+      var subscribeToStreams = function (streams) {
+        L.Logger.debug('subscribeToStreams', streams);
+      };
+
+	  //侦听房间连接事件
+      room.addEventListener("room-connected", function (roomEvent) {
+        L.Logger.debug('room-connected', roomEvent);
+        //publish();
+      });
+
+      //侦听数据流订阅事件
+	  room.addEventListener("room-participant_join", function(roomEvent) {
+        L.Logger.debug('participant_join', roomEvent);
+      });
+
+      //侦听数据流订阅事件
+	  room.addEventListener('stream-subscribed', function(streamEvent) {
+        L.Logger.debug('on event stream-subscribed', streamEvent.stream);
+        var stream = streamEvent.stream;
+        var div = document.createElement('div');
+        div.setAttribute('style', 'width: 320px; height: 240px;float:left;');
+        div.setAttribute('id', 'test' + stream.getID());
+        subscribedStreams[stream.extensionId] = stream;
+        document.getElementById('videoContainer').appendChild(div);
+        stream.play('test' + stream.getID());
+      });
+
+	  //侦听数据流添加事件
+      room.addEventListener('stream-added', function (streamEvent) {
+        L.Logger.debug('stream-added', streamEvent.stream.getAttributes());
+        if(localStream.getID() === streamEvent.stream.getID()) {
+          document.getElementById('publish').disabled=false;
+          document.getElementById('publish').value = 'unpublish';
+        }
+
+        if(streamEvent.stream.getAttributes() !== undefined && streamEvent.stream.getAttributes().type == 'media') {
+          mediaId = streamEvent.stream.getID();
+          L.Logger.debug('mediaId:', mediaId);
+        }
+      });
+
+	  //侦听数据流移除事件
+      room.addEventListener('stream-removed', function (streamEvent) {
+        L.Logger.debug('stream-removed', streamEvent);
+
+        var stream = streamEvent.stream;
+        delete subscribedStreams[stream.extensionId];
+
+        if(stream.extensionId === room.getMySelf().id) {
+          document.getElementById('publish').disabled=false;
+          document.getElementById('publish').value = 'publish';
+        }
+
+        if (stream.elementID !== undefined) {
+          var element = document.getElementById(stream.elementID);
+          document.getElementById('videoContainer').removeChild(element);
+        }
+      });
+
+      //侦听数据流失败事件
+	  room.addEventListener('stream-failed', function (){
+          console.log('Stream Failed, act accordingly');
+      });
+
+      
+	  window.onload = function () {
+        //host, port, params,callback
+		//global.talk-cloud.net
+		//检查房间 老师 role:0
+        room.checkroom("global.talk-cloud.net", 443, {serial:mid, nickname:name, password:pwd, role:0}, function (ret, userinfo, roominfo) {
+          
+		  if (ret != 0) { //失败
+            L.Logger.warning('checkroom error', ret);
+          }
+          else { //成功
+
+            L.Logger.info('Trying to joinroom', userinfo);
+            //(host,port,nickname,params,properties)
+			//创建本地流
+            localStream = TK.Stream({audio: av, video: av, data: false, extensionId: userinfo.id,  attributes:{type:'video'}});
+
+            if (av) { //自动开启音视频  
+              localStream.addEventListener("access-accepted", function () {
+				  //播放本地视频
+                  L.Logger.info('Trying to connect');
+                  var div = document.createElement('div');
+                  div.setAttribute('style', 'width: 320px; height: 240px; float:left');
+                  div.setAttribute('id', 'myVideo');
+                  document.getElementById('videoContainer').appendChild(div);
+                  localStream.play("myVideo");
+
+                  //加入教室
+				  room.joinroom(localStream);
+              });
+			  //本地流初始化
+              //localStream.init();
+			  localStream.init(undefined,selectDevice);  //先点击枚举设备获取设备
+            }
+            else {
+			  //加入教室
+              room.joinroom(localStream);
+            }
+          }
+        });
+      };
+    </script>
+  </head>
+
+  <body>
+    <input type="button" id="publish" onclick="publish()" value="publish"/>
+	<input type="button" id="enumerateDevices" onclick="enumerateDevices()" value="enumerateDevices"/>
+	<select  id="selectDevices" onchange="selectDevices(this)"/>
+	<input type="button" id="changeLocalDevice" onclick="changeLocalDevice()" value="changeLocalDevice"/>
+	<input type="button" id="record" onclick="record()" value="record"/>
+    <input type="button" id="playmedia" onclick="playmedia()" value="playmedia"/>
+    <input type="button" id="seekmedia" onclick="seekmedia()" value="seekmedia"/>
+    <input type="button" id="pausemedia" onclick="pausemedia()" value="pausemedia"/>
+    <input type="button" id="disable" onclick="disable()" value="disable"/>
+    <input type="button" id="classbegin" onclick="classbegin()" value="ClassBegin"/>
+    <input type="button" id="pubmsg" onclick="pubmsg()" value="pubmsg"/>
+    <input type="button" id="delmsg" onclick="delmsg()" value="delmsg"/>
+    <input type="button" id="changeproperty" onclick="changeproperty()" value="changeproperty"/>
+    <input type="button" id="evict" onclick="evict()" value="evict"/>
+    <input type="button" id="send" onclick="sendmsg()" value="sendmsg"/>
+    <input type="text" id="text"style="text-align:left;">
+    <div id="videoContainer"></div>
+	
+  </body>
+</html>
