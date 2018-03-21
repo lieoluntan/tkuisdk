@@ -3506,6 +3506,7 @@ TK.ChromeCanaryStack = function(b) {
     a.sendMessage("OK")
   };
   a.sendMessage = function(b, c) {
+    console.log(b,c);
     var e = {};
     e.messageType = b;
     e.sdp = c;
@@ -5012,6 +5013,8 @@ TK.Room = function() {
   function M(a, b, c) {
     L.Logger.debug("[tk-sdk]Going to webInterfaceGetserver");
     a = S + a + ":" + b + "/ClientAPI/getserverarea?ts\x3d" + (new Date).getTime();
+    console.log(a);
+
     $.ajax({
       url: a,
       type: "post",
@@ -5036,6 +5039,7 @@ TK.Room = function() {
 
   function P(a, b, c) {
     var d = S + y + ":" + F + "/ClientAPI/uploaddocument?ts\x3d" + (new Date).getTime();
+    console.log(d);
     if (a) return $.ajax({
       url: d,
       dataType: "json",
@@ -5061,6 +5065,7 @@ TK.Room = function() {
 
   function U(a, b) {
     var c = S + y + ":" + F + "/ClientAPI/delroomfile?ts\x3d" + (new Date).getTime();
+    console.log(c);
     void 0 === a || null === a ? L.Logger.error("[tk-sdk]deleteFile fileid is required!") :
       $.ajax({
         url: c,
@@ -5603,10 +5608,13 @@ TK.Room = function() {
     })
   };
   R = function(a, b, c, d) {
+    console.log(a,b,c,d);
     L.Logger.debug("[tk-sdk]sendMessageSocket", a, b);
+
     h.socket.emit(a, b, function(a, e) {
+
       "success" === a ? (L.Logger.debug("[tk-sdk]sendMessageSocket success", b, e), c && c(e)) : "error" === a ? d && d(e) : c && c(a, e)
-    })
+    });
   };
   X = function(a, b, c, d) {
     0 !== h.state ? h.socket.emit(a, b, c, function(a, b) {
@@ -5725,6 +5733,7 @@ TK.Room = function() {
     return 0
   };
   h.pubMsg = function(a, b, c, d, e, f, g, l, k) {
+    console.log(a,b,c,d,e,f,g,l,k);
     if (6 != B) return 2;
     var r = {};
     r.name = a;
@@ -5752,6 +5761,7 @@ TK.Room = function() {
     return 0
   };
   h.delMsg = function(a, b, c, d) {
+    console.log(a,b,c,d);
     if (6 != B) return 2;
     var e = {};
     e.name = a;
@@ -5773,6 +5783,8 @@ TK.Room = function() {
     return 0
   };
   h.joinroom = function(a, b, c) {
+    console.log(a,b,c);
+    console.log(h);
     0 !== h.state && L.Logger.warning("[tk-sdk]Room already connected", this.state);
     if (1 !== B || void 0 === y || void 0 === F || void 0 === p) return L.Logger.warning("[tk-sdk]Status error:", B), -1;
     v = a;
@@ -6495,6 +6507,7 @@ TK.Room = function() {
   h.getLottyerDraw =
     function(a, b, c, d) {
       var e = S + y + ":" + F + "/ClientAPI/lotterydraw?ts\x3d" + (new Date).getTime();
+      console.log(e);
       if (c) return $.ajax({
         url: e,
         dataType: "json",
@@ -6516,6 +6529,7 @@ TK.Room = function() {
     };
   h.getOnlineNum = function(a, b, c) {
     var d = S + y + ":" + F + "/ClientAPI/getonlinenum?ts\x3d" + (new Date).getTime();
+    console.log(d);
     if (a) {
       if (b) return $.ajax({
         url: d,
@@ -6553,6 +6567,7 @@ TK.Room = function() {
   };
   h.docUploadFileDataInfo = function(a, b) {
     var c = S + y + ":" + F + "/ClientAPI/docupdateinfo?ts\x3d" + (new Date).getTime();
+    console.log(c);
     if (a) return $.ajax({
       url: c,
       dataType: "json",
@@ -6703,8 +6718,7 @@ TK.Room = function() {
       }) : L.Logger.error("TK.AVMgr no initialization is done!")
   };
   h.startRecordStream = function(a, b, c) {
-    if (6 !=
-      B) return 2;
+    if (6 != B) return 2;
     if (void 0 === a || void 0 === a.getID()) return 4;
     var d = {};
     d.streamId = a.getID();

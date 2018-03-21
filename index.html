@@ -1,14 +1,11 @@
 <html>
   <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <title>Talk-Cloud Example</title>
-    
-
     <script type="text/javascript" src="lib/socket.io.js?222"></script>
     <script type="text/javascript" src="tksdk.js?227666"></script>
 	<script type="text/javascript" src="jquery.min.js?222"></script>
-    
     <script type="text/javascript">
-
       var localStream;              //本地视频流
       var mediaId;                  //媒体文件ID
       var room = TK.Room();         //房间
@@ -17,12 +14,11 @@
 	  var devicesAudioInput = {}; //音频输入设备列表
 	  var devicesVideoInput = {}; //视频输入设备列表
 	  var selectDevice = {};  //选择设备列表
-
       function getParams(name) {        //获取参数
             var reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)', 'i');
-console.log(reg)
             var r = window.location.search.substr(1).match(reg);
-        console.log(r);
+        console.log(reg);
+        console.log(window.location.search.substr(1));
             if (r != null) {
                 return decodeURIComponent(r[2]);
             }
@@ -43,6 +39,7 @@ console.log(reg)
 
 	  //获取教室密码
       var pwd = getParams('pwd');
+
       if (pwd === null) {
         pwd = '1';
       }
@@ -56,33 +53,37 @@ console.log(reg)
       else {
         av = false;
       }
-	  
+      console.log(mid,pwd,av);
 	  var data = {
           action:'deviceManagement' ,
           type:'sendDeviceInfo' ,
           deviceData:undefined ,
       };
-		 
-
-	  //数据流发布，取消发布
+      //数据流发布，取消发布
       function publish() {
         document.getElementById('publish').disabled=true;
-        if(localStream.getID() === 'local')
-          room.changeUserPublish(room.getMySelf().id, 3);
-        else
+        console.log(localStream.getID());
+        if(localStream.getID() === 'local'){
+          console.log(room.changeUserPublish(room.getMySelf().id, 3));
+        }else{
           room.changeUserPublish(room.getMySelf().id, 0);
+        }
+        console.log(room.getMySelf());
       }
 	  
 	  var recording = undefined;
       function record() {
+        console.log(recording);
         if (recording === undefined) {
           recording = localStream;
+          console.log(123);
           room.startRecordStream(localStream, {convert:0}, function(ret, path) { //开始录制视频流   convert：0 不转换 mkv，1 转换 webm， 2 转换 MP4
             L.Logger.debug('startRecordStream ret:', ret, path);    //返回的路径需要在前面加http://global.talk-cloud.net:8081/
           });
         }
-        else { 
+        else {
           recording = undefined;
+          console.log("停止视频录制");
           room.stopRecordStream(localStream, function() { //停止录制视频流
 
           }); 
@@ -113,7 +114,7 @@ console.log(reg)
       function disable() {
         disabled = !disabled;
         room.changeMyDisableVideoState(disabled);
-        document.getElementById('disable').value = disabled ? 'enable' : 'disable';        
+        document.getElementById('disable').value = disabled ? '播放中' : '不能播放';
       }
 
       var isbegin = false;
@@ -121,11 +122,11 @@ console.log(reg)
       function classbegin() {
         isbegin = !isbegin;
         if(isbegin) {
-          document.getElementById('classbegin').value = 'ClassEnd';
+          document.getElementById('classbegin').value = '下课';
           room.pubMsg('ClassBegin', 'ClassBegin', '__all', {}, true);
         }
         else {
-          document.getElementById('classbegin').value = 'ClassBegin';
+          document.getElementById('classbegin').value = '上课';
           room.delMsg('ClassBegin', 'ClassBegin', '__all', {}, true);
         }
       }
@@ -222,18 +223,20 @@ console.log(reg)
 		L.Logger.debug('selectDeviceInfo  ====', selectDeviceInfo);
         room.changeLocalDeviceToLocalstream(selectDeviceInfo , function (stream) {
 			L.Logger.debug('subscribeToStreams ====', stream);
-			/*var div = document.createElement('div');
+			var div = document.createElement('div');
                   div.setAttribute('style', 'width: 320px; height: 240px; float:left');
                   div.setAttribute('id', 'myVideoTest');
                   document.getElementById('videoContainer').appendChild(div);
-			localStream.play('myVideoTest');*/
+			localStream.play('myVideoTest');
         },audioouputElementIdArr);                                                
 	  
 	  }
 
 	  //发送消息
       function sendmsg() {
-        room.sendMessage(document.getElementById('text').value);
+	    var toId = '_All';
+        room.sendMessage(document.getElementById('text').value,toId);
+        console.log(document.getElementById('text').value,room);
       }
 
 	  //订阅
@@ -347,20 +350,20 @@ console.log(reg)
 
   <body>
     <input type="button" id="publish" onclick="publish()" value="publish"/>
-	<input type="button" id="enumerateDevices" onclick="enumerateDevices()" value="enumerateDevices"/>
+	<input type="button" id="enumerateDevices" onclick="enumerateDevices()" value="更新设备"/>
 	<select  id="selectDevices" onchange="selectDevices(this)"/>
 	<input type="button" id="changeLocalDevice" onclick="changeLocalDevice()" value="changeLocalDevice"/>
-	<input type="button" id="record" onclick="record()" value="record"/>
-    <input type="button" id="playmedia" onclick="playmedia()" value="playmedia"/>
-    <input type="button" id="seekmedia" onclick="seekmedia()" value="seekmedia"/>
-    <input type="button" id="pausemedia" onclick="pausemedia()" value="pausemedia"/>
+	<input type="button" id="record" onclick="record()" value="录制"/>
+    <input type="button" id="playmedia" onclick="playmedia()" value="播放"/>
+    <input type="button" id="seekmedia" onclick="seekmedia()" value="快进"/>
+    <input type="button" id="pausemedia" onclick="pausemedia()" value="暂停"/>
     <input type="button" id="disable" onclick="disable()" value="disable"/>
-    <input type="button" id="classbegin" onclick="classbegin()" value="ClassBegin"/>
-    <input type="button" id="pubmsg" onclick="pubmsg()" value="pubmsg"/>
-    <input type="button" id="delmsg" onclick="delmsg()" value="delmsg"/>
-    <input type="button" id="changeproperty" onclick="changeproperty()" value="changeproperty"/>
-    <input type="button" id="evict" onclick="evict()" value="evict"/>
-    <input type="button" id="send" onclick="sendmsg()" value="sendmsg"/>
+    <input type="button" id="classbegin" onclick="classbegin()" value="上课"/>
+    <input type="button" id="pubmsg" onclick="pubmsg()" value="发布消息"/>
+    <input type="button" id="delmsg" onclick="delmsg()" value="删除消息"/>
+    <input type="button" id="changeproperty" onclick="changeproperty()" value="等级"/>
+    <input type="button" id="evict" onclick="evict()" value="踢出"/>
+    <input type="button" id="send" onclick="sendmsg()" value="发消息"/>
     <input type="text" id="text"style="text-align:left;">
     <div id="videoContainer"></div>
 	
